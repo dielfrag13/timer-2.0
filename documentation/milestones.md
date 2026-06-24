@@ -55,7 +55,7 @@ Key outcomes:
 
 ## Milestone 3 — Authentication & Audit Logging
 
-**Status:** Planned
+**Status:** Complete
 
 Adds JWT-gated authentication and per-user data isolation. Establishes the audit trail.
 

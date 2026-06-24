@@ -17,8 +17,15 @@ Including another URLconf
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from timer.views import AuditedTokenObtainPairView, LogoutView
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def health(request):
     return JsonResponse({"status": "ok"})
 
@@ -27,4 +34,7 @@ urlpatterns = [
     path('health/', health),
     path('admin/', admin.site.urls),
     path('api/v1/', include('timer.urls')),
+    path('api/v1/auth/login/', AuditedTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/v1/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/v1/auth/logout/', LogoutView.as_view(), name='token_logout'),
 ]
