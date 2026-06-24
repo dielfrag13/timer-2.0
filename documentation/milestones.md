@@ -35,7 +35,7 @@ Key outcomes:
 
 ## Milestone 2 — REST API Layer
 
-**Status:** Planned
+**Status:** Complete
 
 Replaces all server-rendered views with a Django REST Framework API. Django becomes
 API-only (plus Django Admin).
