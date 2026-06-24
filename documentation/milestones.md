@@ -72,7 +72,7 @@ Key outcomes:
 
 ## Milestone 4 — Containerization
 
-**Status:** Planned
+**Status:** Complete
 
 Packages the full backend stack so it runs with a single `docker compose up`.
 

@@ -1,0 +1,19 @@
+# Local virtual environment — pip installs fresh from requirements.txt in the image
+.venv/
+
+# Compiled bytecode — Python regenerates these inside the container
+__pycache__/
+*.pyc
+*.pyo
+
+# collectstatic output — rebuilt fresh during the image build
+static_files/
+
+# Secrets — must never be copied into the image; reach the container via env_file at runtime
+.env
+
+# Test infrastructure — not needed at runtime
+.pytest_cache/
+conftest.py
+pytest.ini
+requirements-dev.txt
