@@ -195,6 +195,9 @@ class TestLogout:
 
     def test_unauthenticated_logout_returns_401(self, api_client, user):
         tokens = self._login(api_client)
+        # Login now sets httpOnly cookies on the client; clear them so this
+        # request is genuinely unauthenticated (no header, no cookie).
+        api_client.cookies.clear()
         r = api_client.post(
             '/api/v1/auth/logout/', {'refresh': tokens['refresh']}, format='json'
         )

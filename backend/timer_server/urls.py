@@ -19,9 +19,7 @@ from django.http import JsonResponse
 from django.urls import include, path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.views import TokenRefreshView
-
-from timer.views import AuditedTokenObtainPairView, LogoutView
+from timer.views import AuditedTokenObtainPairView, CookieTokenRefreshView, LogoutView, MeView
 
 
 @api_view(['GET'])
@@ -35,6 +33,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('timer.urls')),
     path('api/v1/auth/login/', AuditedTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/v1/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/v1/auth/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
     path('api/v1/auth/logout/', LogoutView.as_view(), name='token_logout'),
+    path('api/v1/auth/me/', MeView.as_view(), name='auth_me'),
 ]

@@ -1,14 +1,16 @@
 import csv
 import logging
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -37,6 +39,28 @@ def _get_client_ip(request):
 # Auth views
 # ---------------------------------------------------------------------------
 
+def _set_auth_cookies(response):
+    """Attach access and refresh tokens as httpOnly cookies to a response."""
+    secure = not settings.DEBUG
+    access_ttl = int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds())
+    refresh_ttl = int(settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds())
+    if 'access' in response.data:
+        response.set_cookie(
+            'timer_access', response.data['access'],
+            max_age=access_ttl, httponly=True, samesite='Lax', secure=secure,
+        )
+    if 'refresh' in response.data:
+        response.set_cookie(
+            'timer_refresh', response.data['refresh'],
+            max_age=refresh_ttl, httponly=True, samesite='Lax', secure=secure,
+        )
+
+
+def _clear_auth_cookies(response):
+    response.delete_cookie('timer_access', samesite='Lax')
+    response.delete_cookie('timer_refresh', samesite='Lax')
+
+
 class AuditedTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         username = request.data.get('username', '')
@@ -52,12 +76,39 @@ class AuditedTokenObtainPairView(TokenObtainPairView):
         except get_user_model().DoesNotExist:
             user_id = None
         audit_logger.info('login_success', extra={'username': username, 'user_id': user_id, 'ip': ip})
+        _set_auth_cookies(response)
+        return response
+
+
+class CookieTokenRefreshView(APIView):
+    """
+    Reads the refresh token from the 'timer_refresh' cookie (browser clients)
+    or the request body (API clients / existing tests), issues a new access
+    token, and sets it as a fresh 'timer_access' cookie.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get('timer_refresh') or request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {'detail': 'Refresh token not found.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        serializer = TokenRefreshSerializer(data={'refresh': refresh_token})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0])
+
+        response = Response(serializer.validated_data)
+        _set_auth_cookies(response)
         return response
 
 
 class LogoutView(APIView):
     def post(self, request):
-        refresh_token = request.data.get('refresh')
+        refresh_token = request.COOKIES.get('timer_refresh') or request.data.get('refresh')
         if not refresh_token:
             return Response({'detail': 'Refresh token is required.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -65,7 +116,23 @@ class LogoutView(APIView):
         except TokenError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         audit_logger.info('logout', extra={'user_id': request.user.id, 'ip': _get_client_ip(request)})
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        _clear_auth_cookies(response)
+        return response
+
+
+class MeView(APIView):
+    def get(self, request):
+        try:
+            surgeon_id = request.user.surgeon.id
+        except Exception:
+            surgeon_id = None
+        return Response({
+            'id': request.user.id,
+            'username': request.user.username,
+            'is_staff': request.user.is_staff,
+            'surgeon_id': surgeon_id,
+        })
 
 
 class _AdminWriteOnlyMixin:
@@ -78,7 +145,7 @@ class _AdminWriteOnlyMixin:
 
 
 class SurgeonViewSet(_AdminWriteOnlyMixin, viewsets.ModelViewSet):
-    queryset = Surgeon.objects.all().order_by('last_name', 'first_name')
+    queryset = Surgeon.objects.select_related('user').order_by('last_name', 'first_name')
     serializer_class = SurgeonSerializer
     filterset_fields = ['email']
 

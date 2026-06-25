@@ -62,7 +62,7 @@ class TestStepInstanceSerializer:
     def test_expected_fields(self, step_instance):
         data = StepInstanceSerializer(step_instance).data
         assert set(data.keys()) == {
-            'id', 'step', 'step_title', 'order',
+            'id', 'operation_instance', 'step', 'step_title', 'order',
             'start_time', 'end_time', 'elapsed_time', 'dist_from_average',
         }
 
@@ -84,8 +84,9 @@ class TestOperationInstanceSerializer:
     def test_expected_fields(self, op):
         data = OperationInstanceSerializer(op).data
         assert set(data.keys()) == {
-            'id', 'operation_type', 'surgeon', 'date',
-            'detail', 'in_room_time', 'complete', 'elapsed_time',
+            'id', 'operation_type', 'operation_type_name',
+            'surgeon', 'surgeon_name',
+            'date', 'detail', 'in_room_time', 'complete', 'elapsed_time',
         }
 
     def test_excludes_nested_steps(self, op, step_instance):
@@ -97,8 +98,9 @@ class TestOperationInstanceDetailSerializer:
     def test_expected_fields(self, op):
         data = OperationInstanceDetailSerializer(op).data
         assert set(data.keys()) == {
-            'id', 'operation_type', 'surgeon', 'date',
-            'detail', 'in_room_time', 'complete', 'elapsed_time', 'steps',
+            'id', 'operation_type', 'operation_type_name',
+            'surgeon', 'surgeon_name',
+            'date', 'detail', 'in_room_time', 'complete', 'elapsed_time', 'steps',
         }
 
     def test_includes_nested_steps(self, op, step_instance):

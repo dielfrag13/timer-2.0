@@ -12,8 +12,6 @@ services:
   backend:
     build: ./backend
     env_file: ./backend/.env
-    ports:
-      - "8000:8000"
     depends_on:
       - db
     restart: unless-stopped
@@ -23,6 +21,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:

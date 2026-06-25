@@ -91,19 +91,30 @@ Key outcomes:
 
 ## Milestone 5 — Frontend App
 
-**Status:** Planned
+**Status:** Complete
 
 Builds a React SPA that fully replaces the Django template UI from 1.0.
 
 Key outcomes:
-- React + Vite, React Router, Axios + React Query, Bootstrap
-- Pages: Login, Dashboard, Surgeons, Operations, Begin Operation, OCS1 (step list),
-  OCS2 (timing with In-room / Now buttons), Post-op stats
-- JWT tokens stored in `httpOnly` cookies
-- `dist_from_average` rendered with color coding
-- Multi-stage `frontend/Dockerfile`: Node build stage → nginx serve stage
-- `nginx.conf` proxies `/api/` and `/admin/` to backend; SPA fallback for all other paths
-- Added as `frontend` service in `docker-compose.yml`
+- React 18 + Vite 8; React Router v6 nested routes; `@tanstack/react-query`;
+  Axios with httpOnly cookie auth; Bootstrap 5 (CSS only, no Bootstrap JS)
+- JWT stored in `httpOnly; SameSite=Lax` cookies (`timer_access`,
+  `timer_refresh`); `CookieJWTAuthentication` backend class falls through to
+  cookie after checking the `Authorization` header
+- `GET /api/v1/auth/me/` endpoint for session bootstrap; `AuthContext` holds
+  `user` (null when logged out) and guards all authenticated routes via
+  `PrivateRoute` (`<Outlet />` pattern)
+- Axios 401 interceptor silently refreshes the access token then retries the
+  original request; hard-redirects to `/login` if refresh fails
+- Pages: Login, Dashboard, Surgeons, Operation Types, Begin Operation, OCS1
+  (step setup), OCS2 (live timing with running clock + per-step Now buttons),
+  Post-op Stats (color-coded `dist_from_average` table + CSV download)
+- Multi-stage `frontend/Dockerfile`: node:20-alpine build stage → nginx:alpine
+  serve stage; `npm ci` layer is cached unless `package*.json` changes
+- `frontend/nginx.conf`: proxies `/api/` and `/admin/` to
+  `http://backend:8000`; `try_files` SPA fallback for all other paths
+- `frontend` service added to `docker-compose.yml` on port 80; backend port
+  8000 removed from host mapping (all traffic through nginx)
 
 ---
 

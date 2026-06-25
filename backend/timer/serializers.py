@@ -6,10 +6,14 @@ from .services import compute_dist_from_average
 
 class SurgeonSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
+    username = serializers.SerializerMethodField()
 
     class Meta:
         model = Surgeon
-        fields = ['id', 'first_name', 'last_name', 'email', 'full_name']
+        fields = ['id', 'first_name', 'last_name', 'email', 'full_name', 'username']
+
+    def get_username(self, obj):
+        return obj.user.username if obj.user else None
 
 
 class OperationTypeSerializer(serializers.ModelSerializer):
@@ -32,7 +36,7 @@ class StepInstanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = StepInstance
         fields = [
-            'id', 'step', 'step_title', 'order',
+            'id', 'operation_instance', 'step', 'step_title', 'order',
             'start_time', 'end_time', 'elapsed_time', 'dist_from_average',
         ]
 
@@ -43,11 +47,17 @@ class StepInstanceSerializer(serializers.ModelSerializer):
 class OperationInstanceSerializer(serializers.ModelSerializer):
     """List and create. No nested steps — avoids N+1 on list views."""
 
+    operation_type_name = serializers.CharField(
+        source='operation_type.operation_type', read_only=True
+    )
+    surgeon_name = serializers.CharField(source='surgeon.full_name', read_only=True)
+
     class Meta:
         model = OperationInstance
         fields = [
-            'id', 'operation_type', 'surgeon', 'date', 'detail',
-            'in_room_time', 'complete', 'elapsed_time',
+            'id', 'operation_type', 'operation_type_name',
+            'surgeon', 'surgeon_name',
+            'date', 'detail', 'in_room_time', 'complete', 'elapsed_time',
         ]
         read_only_fields = ['elapsed_time']
 
@@ -55,12 +65,17 @@ class OperationInstanceSerializer(serializers.ModelSerializer):
 class OperationInstanceDetailSerializer(serializers.ModelSerializer):
     """Retrieve, update, partial_update. Includes nested steps with dist_from_average."""
 
+    operation_type_name = serializers.CharField(
+        source='operation_type.operation_type', read_only=True
+    )
+    surgeon_name = serializers.CharField(source='surgeon.full_name', read_only=True)
     steps = StepInstanceSerializer(many=True, read_only=True)
 
     class Meta:
         model = OperationInstance
         fields = [
-            'id', 'operation_type', 'surgeon', 'date', 'detail',
-            'in_room_time', 'complete', 'elapsed_time', 'steps',
+            'id', 'operation_type', 'operation_type_name',
+            'surgeon', 'surgeon_name',
+            'date', 'detail', 'in_room_time', 'complete', 'elapsed_time', 'steps',
         ]
         read_only_fields = ['elapsed_time']
