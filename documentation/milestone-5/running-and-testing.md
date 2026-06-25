@@ -86,8 +86,6 @@ app and proxies API calls to `backend:8000`).
 
 Open `http://localhost` in the browser.
 
-### Creating a superuser (first run)
-
 ```bash
 docker compose exec backend python manage.py createsuperuser
 ```
