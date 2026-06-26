@@ -1,0 +1,24 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  # Used for production deployments with a real domain.
+  # Let's Encrypt issues a browser-trusted certificate via the ACME HTTP-01
+  # challenge: it makes an HTTP request to /.well-known/acme-challenge/<token>
+  # and nginx-ingress serves the response automatically.
+  #
+  # Rate limits: Let's Encrypt production allows 5 duplicate certificates per
+  # week. Use the staging server during initial setup to avoid hitting limits:
+  #   server: https://acme-staging-v02.api.letsencrypt.org/directory
+  # Staging certs are not browser-trusted but the issuance flow is identical.
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: kyle.buchmiller@gmail.com
+    # cert-manager stores the ACME account private key in this Secret.
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx

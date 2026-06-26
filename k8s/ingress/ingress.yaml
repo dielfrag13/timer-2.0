@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: timer
+  namespace: timer
+  annotations:
+    # Switch this to "letsencrypt-prod" when deploying to a real domain.
+    # cert-manager watches this annotation and automatically requests a
+    # certificate from the named ClusterIssuer, storing it in the Secret
+    # named by spec.tls[].secretName below.
+    cert-manager.io/cluster-issuer: "selfsigned"
+spec:
+  # Selects the ingress-nginx controller installed via Helm in Step 10.
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        # For kind local dev, add "timer.local" to /etc/hosts pointing to 127.0.0.1.
+        # For production, replace with your real domain and update configmap.yaml
+        # ALLOWED_HOSTS to match.
+        - timer.local
+      # cert-manager creates and manages this Secret automatically.
+      secretName: timer-tls
+  rules:
+    - host: timer.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

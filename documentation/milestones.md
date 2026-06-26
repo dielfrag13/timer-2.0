@@ -120,18 +120,61 @@ Key outcomes:
 
 ## Milestone 6 — Kubernetes & Log Aggregation
 
-**Status:** Planned
+**Status:** Complete
 
-Deploys the full stack to Kubernetes and wires up log aggregation.
+Deploys the full stack to Kubernetes using kind for local development and
+documents the path to a real cloud cluster. Adds Loki + Promtail + Grafana
+for log aggregation with pre-built dashboards.
 
 Key outcomes:
-- Namespace `timer`; separate Deployments for backend and frontend
-- ConfigMap for non-sensitive config; Secret for `SECRET_KEY`, `DATABASE_URL`
-- Postgres StatefulSet + PVC (with a note to substitute a managed DB in production)
-- Pre-deploy migration Job runs `manage.py migrate` before the backend Deployment rolls out
-- Ingress with HTTPS via `cert-manager` + Let's Encrypt
-- HorizontalPodAutoscaler: backend scales 2–6 replicas on CPU
-- Loki + Grafana for log aggregation; manifests in `k8s/logging/`
-- Pre-built Grafana dashboards for the `timer.audit` stream and the `timer.api`
-  request/error rate stream
-- `LOG_LEVEL` in ConfigMap is the single dial to change verbosity without redeployment
+- `k8s/namespace.yaml` — all application resources isolated in the `timer` namespace
+- `k8s/configmap.yaml` — non-sensitive env vars (`DEBUG`, `LOG_LEVEL`,
+  `ALLOWED_HOSTS`); `k8s/secret.yaml` (gitignored) holds `SECRET_KEY`,
+  `DATABASE_URL`, and Postgres credentials; `secret.example.yaml` is the
+  checked-in template
+- `backend/timer_server/settings.py` — `SECURE_PROXY_SSL_HEADER` added so
+  Django correctly identifies HTTPS requests forwarded by nginx-ingress
+- `k8s/postgres/` — StatefulSet (1 replica, `postgres:16-alpine`); `PGDATA`
+  set to a subdirectory to avoid the `lost+found` mount issue; `pg_isready`
+  readiness + liveness probes; 10 Gi `volumeClaimTemplates` PVC; ClusterIP
+  Service named `postgres`
+- `k8s/backend/migration-job.yaml` — Job that reuses `entrypoint.sh` by
+  overriding CMD to `true`; `backoffLimit: 3`; `ttlSecondsAfterFinished: 300`
+- `k8s/backend/deployment.yaml` — 2 replicas; `imagePullPolicy: Never`;
+  `envFrom` ConfigMap + Secret; readiness probe (15s delay) + liveness probe
+  (60s delay) on `GET /health/`
+- `k8s/backend/service.yaml` — ClusterIP named `backend` on port 8000 (matches
+  `nginx.conf` proxy_pass — same name as Docker Compose)
+- `k8s/backend/hpa.yaml` — `autoscaling/v2`; 2–6 replicas at 70% average CPU;
+  requires metrics-server
+- `k8s/frontend/` — 1 replica nginx Deployment; no env injection (config baked
+  at build time); same image as M5 unchanged; ClusterIP Service named `frontend`
+- `k8s/ingress/clusterissuer-selfsigned.yaml` — self-signed issuer for kind
+- `k8s/ingress/clusterissuer-letsencrypt.yaml` — Let's Encrypt ACME HTTP-01
+  for production; email `kyle.buchmiller@gmail.com`
+- `k8s/ingress/ingress.yaml` — `ingressClassName: nginx`; all traffic routes to
+  frontend Service (nginx handles internal `/api/` proxying); TLS via
+  cert-manager annotation; host `timer.local` for kind
+- `k8s/logging/loki-values.yaml` — single-binary Loki, filesystem storage,
+  TSDB schema v13, auth disabled, 10 Gi PVC
+- `k8s/logging/promtail-values.yaml` — DaemonSet; 3-stage pipeline: `cri: {}`
+  → `json` (extracts `level`, `logger`) → `labels`; non-JSON lines stored without labels
+- `k8s/logging/grafana-values.yaml` — Loki datasource provisioned; sidecar
+  watches `grafana_dashboard=1` ConfigMaps; access via port-forward port 3000
+- `k8s/logging/dashboards/audit.json` — stats (total events, login failures,
+  operations completed); activity time series; raw audit log panel
+- `k8s/logging/dashboards/api-requests.json` — stats (total, 5xx, 4xx);
+  request rate + avg/p95 response time via `unwrap duration_ms`; error log panel
+- `k8s/kind-config.yaml` — single control-plane node; `ingress-ready=true`
+  node label; port mappings 80→80, 443→443
+- `k8s/scripts/setup-kind.sh` — creates cluster; installs ingress-nginx,
+  cert-manager, metrics-server, Loki, Promtail, Grafana; idempotent
+- `k8s/scripts/build-images.sh` — builds and kind-loads `timer-backend:latest`
+  and `timer-frontend:latest`
+- `k8s/scripts/apply.sh` — applies all manifests in dependency order with
+  `kubectl wait` gates; delete+recreate migration Job on each run
+- `documentation/dependencies.md` — complete install reference for all system
+  tools, Python packages, npm packages, and Helm charts across all milestones
+- `documentation/troubleshooting.md` — running log of problems and fixes
+- `documentation/milestone-6/` — design-decisions.md, implementation-steps.md,
+  implementation-notes.md, grafana-guide.md, running-and-testing.md

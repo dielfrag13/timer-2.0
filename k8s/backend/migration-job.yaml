@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: backend-migrate
+  namespace: timer
+spec:
+  # Clean up the completed Job pod automatically after 5 minutes so it
+  # does not clutter the namespace, but leaves enough time to check logs.
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          # Image built locally and loaded into kind by k8s/scripts/build-images.sh.
+          # Never pull from a remote registry — the image only exists in the kind
+          # cluster's local image cache.
+          image: timer-backend:latest
+          imagePullPolicy: Never
+          # Override the Dockerfile CMD to a no-op. entrypoint.sh already:
+          #   1. Waits for Postgres via pg_isready
+          #   2. Runs python manage.py migrate
+          #   3. Calls exec "$@" — which becomes exec true → exits 0
+          args: ["true"]
+          envFrom:
+            - configMapRef:
+                name: timer-config
+            - secretRef:
+                name: timer-secret
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"

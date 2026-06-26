@@ -1,0 +1,43 @@
+# Helm values for grafana/promtail
+# Install command (run after Loki is ready):
+#   helm install promtail grafana/promtail --namespace logging --values k8s/logging/promtail-values.yaml
+
+config:
+  logLevel: info
+  serverPort: 3101  # Promtail's own HTTP server (health, metrics, ready endpoints)
+
+  clients:
+    - url: http://loki.logging.svc.cluster.local:3100/loki/api/v1/push
+
+  snippets:
+    # Pipeline stages run on every log line collected from every pod on the node.
+    # Stages are applied in order; each stage can extract values and mutate labels.
+    pipelineStages:
+
+      # Stage 1: parse the CRI (containerd) log format.
+      # containerd wraps each log line with metadata before writing to the node:
+      #   2024-01-01T00:00:00.000Z stdout F <actual log line>
+      # The cri stage strips the timestamp/stream/flags prefix and leaves only
+      # the actual log content in the pipeline for subsequent stages.
+      - cri: {}
+
+      # Stage 2: parse the log line as JSON.
+      # The backend emits structured JSON via python-json-logger with these fields:
+      #   {"timestamp": "...", "level": "INFO", "logger": "timer.audit", "message": "..."}
+      # This stage extracts "level" and "logger" into the pipeline's extracted map.
+      # Lines from non-JSON sources (nginx access logs, etc.) fail silently —
+      # no labels are extracted but the line is still stored in Loki.
+      - json:
+          expressions:
+            level: level
+            logger: logger
+
+      # Stage 3: promote extracted values to Loki labels.
+      # Labels become indexed dimensions that LogQL can filter on:
+      #   {logger="timer.audit"} — all audit events
+      #   {logger="timer.api", level="ERROR"} — API errors only
+      # Keep the label set small: high-cardinality labels (e.g., user ID, request ID)
+      # would create too many index entries and degrade Loki performance.
+      - labels:
+          level:
+          logger:

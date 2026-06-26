@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: timer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          # Image built locally and loaded into kind by k8s/scripts/build-images.sh.
+          image: timer-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: timer-config
+            - secretRef:
+                name: timer-secret
+          # Readiness: do not route traffic until gunicorn is serving /health/.
+          # initialDelaySeconds accounts for entrypoint.sh running pg_isready
+          # + migrate (a no-op if the migration Job already ran) before gunicorn binds.
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              # Probes hit the pod IP directly, bypassing the Ingress.
+              # Sending "Host: localhost" matches the "localhost" entry in
+              # ALLOWED_HOSTS so Django does not raise DisallowedHost.
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 6
+          # Liveness: restart the pod if /health/ stops responding after startup.
+          # Longer initialDelaySeconds so a slow cold start is not mistaken for a crash.
+          livenessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

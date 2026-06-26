@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: timer-config
+  namespace: timer
+data:
+  DEBUG: "False"
+  LOG_LEVEL: "INFO"
+  # Must include the Ingress hostname AND localhost.
+  # Ingress hostname: "timer.local" for kind, your real domain for production.
+  # localhost: required so K8s readiness/liveness probes pass — they hit the
+  # pod IP directly and send "Host: localhost" in the HTTP probe request.
+  ALLOWED_HOSTS: "timer.local,localhost"

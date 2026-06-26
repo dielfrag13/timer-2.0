@@ -1,0 +1,9 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  # Used for local kind development. Produces a self-signed certificate that
+  # the browser will warn about ("Your connection is not private") — accept the
+  # warning to proceed. Not suitable for production.
+  name: selfsigned
+spec:
+  selfSigned: {}

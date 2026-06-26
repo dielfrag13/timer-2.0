@@ -1,0 +1,56 @@
+# Helm values for grafana/loki (chart v6.x, Loki 3.x)
+# Install command:
+#   helm repo add grafana https://grafana.github.io/helm-charts
+#   helm install loki grafana/loki --namespace logging --create-namespace --values k8s/logging/loki-values.yaml
+
+# Single-binary (monolithic) mode: all Loki components run in one pod.
+# Good for low-to-moderate log volume (< ~10 GB/day). If ingestion grows,
+# switch to SimpleScalable mode and add object storage (S3/GCS).
+deploymentMode: SingleBinary
+
+loki:
+  # Single-tenant mode — no X-Scope-OrgID header required from Promtail.
+  # Appropriate for an internal cluster with no multi-tenancy requirements.
+  auth_enabled: false
+
+  commonConfig:
+    replication_factor: 1  # single instance; no replication
+
+  storage:
+    type: filesystem  # store chunks on the pod's PVC; no object storage needed
+
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb      # TSDB index: the current default for Loki 3.x
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 10Gi  # adjust upward if log retention grows beyond a few months
+
+# Disable all scalable-mode components — these only apply when
+# deploymentMode is SimpleScalable or Distributed.
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# No nginx gateway needed — Promtail and Grafana connect directly to the
+# Loki pod via the ClusterIP Service on port 3100.
+gateway:
+  enabled: false
+
+# Disable built-in test pod and canary — not needed for local dev.
+test:
+  enabled: false
+lokiCanary:
+  enabled: false

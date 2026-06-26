@@ -156,6 +156,9 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
+# Kubernetes secrets (never commit; use k8s/secret.example.yaml as template)
+k8s/secret.yaml
+
 # Environments
 .env
 .envrc

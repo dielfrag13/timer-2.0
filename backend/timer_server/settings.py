@@ -144,9 +144,13 @@ SIMPLE_JWT = {
 }
 
 # --- Security ---
-# SECURE_SSL_REDIRECT and SECURE_HSTS_* are intentionally omitted: TLS
-# terminates at the K8s Ingress, not inside Django.
+# TLS terminates at the K8s Ingress (nginx-ingress), not inside Django.
+# SECURE_SSL_REDIRECT and SECURE_HSTS_* are intentionally omitted.
+# SECURE_PROXY_SSL_HEADER tells Django to trust the X-Forwarded-Proto header
+# that nginx-ingress sets on every forwarded request, so request.is_secure()
+# returns True and SESSION_COOKIE_SECURE / CSRF_COOKIE_SECURE work correctly.
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 SESSION_COOKIE_SECURE = not DEBUG

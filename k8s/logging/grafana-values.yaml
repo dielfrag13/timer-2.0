@@ -1,0 +1,52 @@
+# Helm values for grafana/grafana
+# Install command (run after Loki is ready):
+#   helm install grafana grafana/grafana --namespace logging --values k8s/logging/grafana-values.yaml
+#
+# Access after install:
+#   kubectl port-forward svc/grafana 3000:80 -n logging
+#   Open http://localhost:3000  (admin / admin, then change password)
+
+adminUser: admin
+adminPassword: admin  # fine for kind local dev; use a K8s Secret for production
+
+# Provision the Loki datasource automatically so it appears in Grafana
+# without any manual UI steps.
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki.logging.svc.cluster.local:3100
+        isDefault: true
+        jsonData:
+          maxLines: 1000
+
+# The sidecar watches for ConfigMaps labeled grafana_dashboard=1 in the
+# logging namespace and automatically loads their contents as dashboards.
+# The apply script (k8s/scripts/apply.sh) creates and labels the ConfigMap
+# from the JSON files in k8s/logging/dashboards/.
+sidecar:
+  dashboards:
+    enabled: true
+    searchNamespace: logging
+    label: grafana_dashboard
+    labelValue: "1"
+    folderAnnotation: grafana_folder
+    provider:
+      foldersFromFilesStructure: false
+
+# Persist dashboards and datasource settings across pod restarts.
+# Without this, Grafana loses all state when the pod is replaced.
+persistence:
+  enabled: true
+  size: 1Gi
+
+# Default time range and refresh for all dashboards.
+grafana.ini:
+  dashboards:
+    default_home_dashboard_path: ""
+  users:
+    default_theme: dark
